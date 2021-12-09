@@ -1,1 +1,1 @@
-# Ch7_TrajectoryGeneration
+# Ch6_TrajectoryGeneration
