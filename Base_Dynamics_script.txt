@@ -1,0 +1,115 @@
+function sysCall_init()
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function computeCubicTrajectory(q0,qT,T)
+    local n=#q0
+    local a={}
+    local b={}
+    local c={}
+    local d={}
+    for i=1,3,1 do
+      a[i] = 0
+      b[i] = 0
+      c[i] = 0
+      d[i] = 0      
+    end
+    --TODO: Compute the cubic trajectory parameters
+    for i=1,3,1 do
+        a[i] = -2*(qT[i]-q0[i])/(T^3)
+        b[i] = 3*(qT[i]-q0[i])/(T^2)
+        c[i] = 0;
+        d[i] = q0[i];
+    end
+    return a,b,c,d
+end
+
+function evalCubicTrajectory(a,b,c,d,t)
+    local n=#a
+    local qtraj={}
+    local dqtraj={}
+    for i=1,3,1 do
+      qtraj[i] = 0
+      dqtraj[i] = 0      
+    end
+    --TODO: Evaluate trajectory position
+    for i=1,3,1 do
+        qtraj[i] = a[i]*t^3 + b[i]*t^2+ c[i]*t+ d[i]
+        dqtraj[i] = 3*a[i]*t^2 + 2*b[i]*t + c[i]
+    end
+        
+    return qtraj
+end
+
+function moveAbsJ(joints,q0,qT,T)
+    local dt=sim.getSimulationTimeStep()
+    local N=math.floor(T/dt)
+    local n=#q0
+    local a,b,c,d,qtraj
+    --TODO: compute traj parameters
+    a,b,c,d = computeCubicTrajectory(q0,qT,T)
+    qtraj=q0
+    local t=0
+    for j=1,N,1 do
+        --TODO: evaluate traj at time "t"
+        qtraj=evalCubicTrajectory(a,b,c,d,t)
+        for i=1,n,1 do
+            sim.setJointTargetPosition(joints[i],qtraj[i])
+        end
+        sim.switchThread()
+        t=t+dt
+        
+    end
+    qtraj=qT
+    for i=1,n,1 do
+        sim.setJointTargetPosition(joints[i],qtraj[i])
+    end
+    sim.switchThread()
+end
+
+function coroutineMain()
+    -- Put some initialization code here
+    q0 = {math.rad(90),math.rad(90),math.rad(90)} --initial position (x,y,z)
+    T = 200 --total time
+    
+    joints={}
+    for i=1,3,1 do
+        joints[i]=sim.getObjectHandle('joint'..i)
+    end
+    
+    --TODO: Define a set of target configurations
+    maxVel = 0.2;
+    maxAcc = 0.2;
+    maxJerk = 1;
+    
+    --TODO: Define 'sim.rmlMoveToJointPositions' max vel, acc and jerks
+    cVel = {0,0,0} --initial velocity
+    cAcc = {0,0,0} --initial acceleration
+    vMax = {maxVel,maxVel,maxVel} --Max velocity
+    aMax = {maxAcc,maxAcc,maxAcc} --Max acceleration
+    jMax = {maxJerk,maxJerk,maxJerk} --Max jerk
+    q1 = {math.rad(90),math.rad(160),math.rad(155)} --Target position (
+    v1 = {0,0,0} --Target velocity
+    --aruments(jointhandle to be moved, flag (sync join movements), initial vel, acc, max vel,acc,jerk, target pos, target vel
+    result,cPos,cVel,CAcc = sim.rmlMoveToJointPositions(joints,-1,cVel,cAcc,vMax,aMax,jMax,q1,v1)
+    
+    --TODO: Call 'moveAbsJ' function with those target configurations
+     --moveAbsJ(joints,q0,q1,T)
+    --TODO: Call 'sim.rmlMoveToJointPositions' function to reach the same target configurations
+    
+end
+
+function sysCall_cleanup()
+    -- Put some clean-up code here
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
